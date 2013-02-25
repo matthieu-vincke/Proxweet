@@ -9,12 +9,16 @@
     var position;
     var wait;
     var refreshOngoing = false;
-    var refreshTime = 100;
+    var refreshTime = 10000; // refresh every 10 seconds
+    var serverOk = true;
     function error(txt){
       alert(txt);
     }
     function serverError(){
-      error("unable to contact the server");
+      if(serverOk){
+        error("unable to contact the server");
+        serverOk = false;
+      }
     }
     function blockWait(){
       wait = true;
