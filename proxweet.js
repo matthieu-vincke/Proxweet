@@ -79,7 +79,7 @@ http.createServer(function (req, res) {
   var fct = route[pathname.slice(1)];
   if(fct) fct(req, res);
   else file.serve(req, res);
-}).listen(80, '127.0.0.1');
+}).listen(80);
 
 //db.proxweet.remove({});
 
