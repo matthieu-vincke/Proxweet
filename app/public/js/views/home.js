@@ -13,5 +13,5 @@ $(document).ready(function(){
 	$('.modal-alert .modal-header h3').text('Server error');
 	$('.modal-alert .modal-body p').html('Unable to contact the server');
 	$('.modal-alert #ok').html('Ok');
-  hc.refresh();
+  hc.refreshLoop();
 })
