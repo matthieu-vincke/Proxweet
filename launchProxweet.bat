@@ -1,2 +1,0 @@
-node proxweet.js
-pause
