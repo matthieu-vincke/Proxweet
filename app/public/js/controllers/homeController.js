@@ -100,16 +100,17 @@ function HomeController()
     error(info);
   }
   
-  function refreshLoop(){
-    refresh();
-    setTimeout(refreshLoop,refreshTime);
-  }
-    
-  this.refresh = function(){
+  function refresh(){
     if(refreshOngoing) return;
     refreshOngoing = true;
     navigator.geolocation.getCurrentPosition(myPosition, errPosition,{timeout:20000});
   }
+  
+  this.refreshLoop = function(){
+    refresh();
+    setTimeout(that.refreshLoop,refreshTime);
+  }
+    
     
   this.pushTweet = function(user, text){
     if(!position) return error("position not defined");
@@ -118,7 +119,7 @@ function HomeController()
       url: "post",
       data: { lng:position.longitude, lat:position.latitude, user: user, text: text }
     }).done(function( xml ) { 
-      that.refresh();
+      refresh();
     }).fail(serverError);
   }
 
