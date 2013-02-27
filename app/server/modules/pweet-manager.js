@@ -28,6 +28,7 @@ proxweet.ensureIndex( { pos: "2d" } , function(){});
 
 exports.getXML = function(pos, callback){
   var query = { pos: { $within: { $centerSphere: [[pos.lng, pos.lat], distance/6378.137] } } };
+  console.log(JSON.stringify(query));
   proxweet.find(query).sort({arrival:-1}).limit(10).toArray(function(err, users) {
     if(err){
       console.log(JSON.stringify(err));
@@ -50,7 +51,7 @@ exports.post = function(pos, user, text, callback){
     user:user,
     text:text
   };
-  
+  console.log(JSON.stringify(obj));
   proxweet.save(obj,function(err){
     if(err) callback(null);
     else callback(true);
