@@ -8,6 +8,7 @@
 var express = require('express');
 var http = require('http');
 var app = express();
+var AM = require('./app/server/modules/account-manager');
 
 app.configure(function(){
 	app.set('port', 80);
@@ -17,7 +18,8 @@ app.configure(function(){
 //	app.use(express.favicon());
 	app.use(express.logger('dev'));
 	app.use(express.bodyParser());
-	app.use(express.cookieParser());
+  app.use(AM.tokenUser);
+	app.use(express.cookieParser());  
 	app.use(express.session({ secret: 'super-duper-secret-secret' }));
 	app.use(express.methodOverride());
 	app.use(require('stylus').middleware({ src: __dirname + '/app/public' }));
@@ -33,3 +35,8 @@ require('./app/server/router')(app);
 http.createServer(app).listen(app.get('port'), function(){
 	console.log("Express server listening on port " + app.get('port'));
 })
+
+
+
+
+

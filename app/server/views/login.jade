@@ -3,13 +3,13 @@ extends layout
 
 block content
 	#login-container
-		form( method="post")#login-form.well.span4
+		form( method="post")#login-form.well.row-fluid.span10
 			h1 Hello!
 			p.subheading Please Login To Your Account
 			label Username 
-			input(type="text", name="user", id='user-tf').span4.required
+			input(type="text", name="user", id='user-tf').span12.required
 			label Password
-			input(type="password", name="pass", id='pass-tf').span4.required
+			input(type="password", name="pass", id='pass-tf').span12.required
 			button(type="submit")#btn-login.btn.btn-primary
 				i.icon-lock.icon-white
 				| Sign in

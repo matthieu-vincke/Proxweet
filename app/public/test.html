@@ -1,0 +1,87 @@
+<html>
+  <head>
+    <script>
+    </script>
+    <script src="vendor/jquery.min.js"></script>
+    <script>
+      $(function(){
+        function log(text){
+          $("body").append($("<div/>").text(text));
+        }
+        function reqPost(url,data,cb){
+          $.ajax({ type: "POST", url: url, data: data})
+           .done(function(ret) { cb(null,ret); })
+           .fail(function(err){ cb(err,null); });
+        }
+        function ajaxLogin(user,pass,cb){
+          reqPost("login",{user:user,pass:pass},cb);
+        }
+        function ajaxLogout(token,cb){
+          reqPost("logout",{token:token},cb);
+        }
+        function ajaxGet(token,lng,lat,cb){
+          reqPost("get",{token:token,lng:lng,lat:lat},cb);
+        }
+        function ajaxPost(token,lng,lat,text,cb){
+          reqPost("post",{token:token,lng:lng,lat:lat,text:text},cb);
+        }
+        function ajaxSignup(user,pass,email,name,cb){
+          reqPost("signup",{user:user,pass:pass,email:email,name:name},cb);
+        }
+        function ajaxParameter(token,pass,email,name,cb){
+          reqPost("parameter",{token:token,pass:pass,email:email,name:name},cb);
+        }
+        function ajaxDelete(token,cb){
+          reqPost("delete",{token:token},cb);
+        }
+        function ajaxReset(cb){
+          reqPost("reset",{},cb);
+        }
+        
+        function signupLoginDelete(){
+          ajaxSignup("clientTest","clientPass","clientMail","clientName",function(e,o){
+            if(e) return log("signup error : " + e.responseText);
+            log("signup ok");
+            ajaxLogin("clientTest","clientPass",function(e,token){
+              if(e) return log("login error : " + e.responseText);
+              log("login ok, token: " + token);
+              ajaxDelete(token,function(e,o){
+                if(e) return log("delete error : " + e.responseText);
+                log("delete ok");          
+              });
+            });
+          });
+        }
+        
+        function signupLoginPostRetrieveDelete(){
+          ajaxSignup("clientTest","clientPass","clientMail","clientName",function(e,o){
+            if(e) return log("signup error : " + e.responseText);
+            log("signup ok");
+            ajaxLogin("clientTest","clientPass",function(e,res){
+              if(e) return log("login error : " + e.responseText);
+              log("login ok, token: " + res.token);
+              var token = res.token;
+              ajaxPost(token,5,5,"msgTest",function(e){
+                if(e) return log("post error : " + e.responseText);
+                log("post ok");
+                ajaxGet(token,5,5,function(e,res){
+                  if(e) return log("get error : " + e.responseText);
+                  log("get ok, tweets: " + JSON.stringify(res));
+                  ajaxDelete(token,function(e,o){
+                    if(e) return log("delete error : " + e.responseText);
+                    log("delete ok");          
+                  });
+                });
+              });
+            });
+          });
+        }
+        
+        signupLoginPostRetrieveDelete();
+      });
+    </script>
+  </head>
+  <body>
+    
+  </body>
+</html>

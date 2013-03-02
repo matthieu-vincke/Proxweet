@@ -1,222 +1,134 @@
-
 var AM = require('./modules/account-manager');
 var PM = require('./modules/pweet-manager');
 var EM = require('./modules/email-dispatcher');
 
 module.exports = function(app) {
-
 // main login page //
+  app.post('/login',function(req,res){
+    AM.getToken(req.param('user'), req.param('pass'), function(e, token){
+      if(!e) res.send({token:token});
+      else res.send(400, e);
+    });
+  });
 
-	app.get('/', function(req, res){
-	// check if the user's credentials are saved in a cookie //
-		if (req.cookies.user == undefined || req.cookies.pass == undefined){
-			res.render('login', { title: 'Hello - Please Login To Your Account' });
-		}	else{
-	// attempt automatic login //
-			AM.autoLogin(req.cookies.user, req.cookies.pass, function(o){
-				if (o != null){
-				    req.session.user = o;
-					res.redirect('/home');
-				}	else{
-					res.render('login', { title: 'Hello - Please Login To Your Account' });
-				}
-			});
-		}
-	});
-	
-	app.post('/', function(req, res){
-		AM.manualLogin(req.param('user'), req.param('pass'), function(e, o){
-			if (!o){
-				res.send(e, 400);
-			}	else{
-			    req.session.user = o;
-				if (req.param('remember-me') == 'true'){
-					res.cookie('user', o.user, { maxAge: 900000 });
-					res.cookie('pass', o.pass, { maxAge: 900000 });
-				}
-				res.send(o, 200);
-			}
-		});
-	});
-	
-// logged-in user homepage //
-	
-	app.get('/home', function(req, res) {
-    if (req.session.user == null){
-// if user is not logged-in redirect back to login page //
-      res.redirect('/');
-    } else{
-      res.render('home', {
-        title : 'Home',
-        udata : req.session.user
-      });
+  app.post('/logout',function(req,res){
+    if(!req.user){
+      res.send(401, 'invalid token');
+      return;
     }
-	});
-	
-	app.post('/home', function(req, res){
-		if (req.param('logout') == 'true'){
-			res.clearCookie('user');
-			res.clearCookie('pass');
-			req.session.destroy(function(e){ res.send('ok', 200); });
-		}
-	});
-  
+    AM.destroyToken(req.param('token'), function(e){
+      if(!e) res.send('ok');
+      else res.send(500, 'error');
+    });
+  });
+
   app.post('/get', function(req, res) {
-    if (req.session.user == null){
-      res.redirect('/');
-    }else{
-      PM.getXML({lng:parseFloat(req.param('lng')),lat:parseFloat(req.param('lat'))},function(doc){
-        if(doc) res.send(doc.toString(), 200);
-        else res.send('error', 400);
-      });
+    if(!req.user){
+      res.send(401, 'invalid token');
+      return;
     }
-	});
-  
+    PM.get({lng:parseFloat(req.param('lng')),lat:parseFloat(req.param('lat'))},1,function(err,data){
+      if(!err) res.send(data);
+      else res.send(500,'error');
+    });
+  });
+
   app.post('/post', function(req, res) {
-    if (req.session.user == null){
-      res.redirect('/');
-    }else{
-      PM.post({lng:parseFloat(req.param('lng')),lat:parseFloat(req.param('lat'))},req.session.user.name,req.param('text'),function(doc){
-        if(doc) res.send('ok', 200);
-        else res.send('error', 400);
-      });
+    if(!req.user){
+      res.send(401, 'invalid token');
+      return;
     }
-	});
-  
-  app.get('/parameter', function(req, res) {
-    if (req.session.user == null){
-  // if user is not logged-in redirect back to login page //
-          res.redirect('/');
-      }else{
-      res.render('parameter', {
-        title : 'Control Panel',
-        udata : req.session.user
-      });
+    PM.post({lng:parseFloat(req.param('lng')),lat:parseFloat(req.param('lat'))},req.user.name,req.param('text'),function(err,data){
+      if(!err) res.send('ok');
+      else res.send(500, 'error');
+    });
+  });
+
+// creating/deleting/modifying new accounts //
+  app.post('/signup', function(req, res){
+    AM.addNewAccount({
+      name : req.param('name'),
+      email : req.param('email'),
+      user : req.param('user'),
+      pass : req.param('pass'),
+    }, function(e){
+      if (e) res.send(406, e);
+      else res.send('ok');
+    });
+  });
+
+  app.post('/parameter', function(req, res){
+    if(!req.user){
+      res.send(401, 'invalid token');
+      return;
     }
-	});
-  
-	app.post('/parameter', function(req, res){
-		if(req.session.user) {
-			AM.updateAccount({
-				user 		: req.session.user.user,
-				name 		: req.param('name'),
-				email 		: req.param('email'),
-				pass		: req.param('pass')
-			}, function(e, o){
-				if (e){
-					res.send('error-updating-account', 400);
-				}	else{
-					req.session.user = o;
-			// update the user's login cookies if they exists //
-					if (req.cookies.user != undefined && req.cookies.pass != undefined){
-						res.cookie('user', o.user, { maxAge: 900000 });
-						res.cookie('pass', o.pass, { maxAge: 900000 });	
-					}
-					res.send('ok', 200);
-				}
-			});
-		}
-	});
-	
-// creating new accounts //
-	
-	app.get('/signup', function(req, res) {
-		res.render('signup', {  title: 'Signup' });
-	});
-	
-	app.post('/signup', function(req, res){
-		AM.addNewAccount({
-			name 	: req.param('name'),
-			email : req.param('email'),
-			user 	: req.param('user'),
-			pass	: req.param('pass'),
-		}, function(e){
-			if (e){
-				res.send(e, 400);
-			}	else{
-				res.send('ok', 200);
-			}
-		});
-	});
+    AM.updateAccount({
+      user : req.user.user,
+      name : req.param('name'),
+      email : req.param('email'),
+      pass : req.param('pass')
+    }, function(e, o){
+        if (e) res.send(500, 'error-updating-account');
+        else res.send('ok');
+    });
+  });
+  app.post('/delete', function(req, res){
+    if(!req.user){
+      res.send(401, 'invalid token');
+      return;
+    }
+    AM.deleteAccount(req.user._id, function(e, obj){
+      if (!e) res.send('ok');
+      else res.send(400, 'unable to found the account');
+    });
+  });
 
 // password reset //
 
-	app.post('/lost-password', function(req, res){
-	// look up the user's account via their email //
-		AM.getAccountByEmail(req.param('email'), function(o){
-			if (o){
-				res.send('ok', 200);
-				EM.dispatchResetPasswordLink(o, function(e, m){
-				// this callback takes a moment to return //
-				// should add an ajax loader to give user feedback //
-					if (!e) {
-					//	res.send('ok', 200);
-					}	else{
-						res.send('email-server-error', 400);
-						for (k in e) console.log('error : ', k, e[k]);
-					}
-				});
-			}	else{
-				res.send('email-not-found', 400);
-			}
-		});
-	});
+  app.post('/lost-password', function(req, res){
+    AM.getAccountByEmail(req.param('email'), function(o){
+      if (o){
+        res.send('ok');
+        EM.dispatchResetPasswordLink(o, function(e, m){
+          if (!e) {
+            //res.send('ok', 200);
+          } else{
+            res.send(400, 'email-server-error');
+            for (k in e) console.log('error : ', k, e[k]);
+          }
+        });
+      }else res.send(400, 'email-not-found');
+    });
+  });
+  
+  app.post('/reset-password', function(req, res) {
+    var email = req.param('email');
+    var code = req.param('code');
+    var nPass = req.param('npass');
+    AM.updatePassword(email, code, nPass, function(o){
+      if(o) res.send('ok');
+      else res.send(400, 'unable to update password');
+    });
+  });
+  
+// test //
 
-	app.get('/reset-password', function(req, res) {
-		var email = req.query["e"];
-		var passH = req.query["p"];
-		AM.validateResetLink(email, passH, function(e){
-			if (e != 'ok'){
-				res.redirect('/');
-			} else{
-	// save the user's email in a session instead of sending to the client //
-				req.session.reset = { email:email, passHash:passH };
-				res.render('reset', { title : 'Reset Password' });
-			}
-		})
-	});
-	
-	app.post('/reset-password', function(req, res) {
-		var nPass = req.param('pass');
-	// retrieve the user's email from the session to lookup their account and reset password //
-		var email = req.session.reset.email;
-	// destory the session immediately after retrieving the stored email //
-		req.session.destroy();
-		AM.updatePassword(email, nPass, function(o){
-			if (o){
-				res.send('ok', 200);
-			}	else{
-				res.send('unable to update password', 400);
-			}
-		})
-	});
-	
-// view & delete accounts //
-	/*
-	app.get('/print', function(req, res) {
-		AM.getAllRecords( function(e, accounts){
-			res.render('print', { title : 'Account List', accts : accounts });
-		})
-	});*/
-	
-	app.post('/delete', function(req, res){
-		AM.deleteAccount(req.session.user.id, function(e, obj){
-			if (!e){
-				res.clearCookie('user');
-				res.clearCookie('pass');
-	      req.session.destroy(function(e){ res.send('ok', 200); });
-			}	else{
-				res.send('record not found', 400);
-			}
-	    });
-	});
-	/*
-	app.get('/reset', function(req, res) {
-		AM.delAllRecords(function(){
-			res.redirect('/print');	
-		});
-	});
-	*/
-	app.get('*', function(req, res) { res.render('404', { title: 'Page Not Found'}); });
+  app.get('/reset', function(req, res) {
+    PM.delAllRecords(function(){
+      AM.delAllRecords(function(){
+        res.send('ok');
+      });
+    });
+  });
+
+  app.post('/reset', function(req, res) {
+    PM.delAllRecords(function(){
+      AM.delAllRecords(function(){
+        res.send('ok');
+      });
+    });
+  });
+
+  app.get('*', function(req, res) { res.render('404', { title: 'Page Not Found'}); });
 
 };
