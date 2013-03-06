@@ -163,6 +163,14 @@ exports.getAllRecords = function(callback){
     });
 };
 
+exports.getUserById = function(id,callback){
+  findById(id,callback);
+}
+
+exports.getUsersById = function(ids,callback){
+  accounts.find({_id: {$in: ids}},callback);
+}
+
 exports.delAllRecords = function(callback){
   accounts.remove({}, function(){
     tokens.remove({}, callback);
@@ -200,7 +208,7 @@ var validatePassword = function(plainPass, hashedPass, callback){
 
 var getObjectId = function(id){
   if(!id.substr) return id;
-  return accounts.db.bson_serializer.ObjectID.createFromHexString(id)
+  return db.bson_serializer.ObjectID.createFromHexString(id)
 }
 
 var findById = function(id, callback){
@@ -219,6 +227,39 @@ var findByMultipleFields = function(a, callback){
       if (e) callback(e)
       else callback(null, results)
     });
+}
+
+exports.testGetUsers = function(names,callback){
+  var n = names.length;
+  var tokens = [];
+  var users = [];
+  function userReady(token,user){
+    tokens.push(token);
+    users.push(user);
+    if(!--n) callback(null,tokens,users);
+  }
+  names.forEach(function(name){
+    exports.addNewAccount({user:name,email:name,pass:'userpass'},function(e,user){
+      if(!user || e) return callback('error');
+      exports.getToken(name,'userpass',function(e,token){
+        if(!token || e) return callback('error');
+        userReady(token,user[0]);
+      });
+    });
+  });
+}
+
+exports.testDelUsers = function(tokens,callback){
+  var n = tokens.length;
+  function userDeleted(){
+    if(!--n) callback(null,null);
+  }
+  tokens.forEach(function(token){
+    exports.deleteAccount(token,function(e,o){
+      if(e) return callback('error');
+      userDeleted();
+    });
+  });
 }
 
 function test(){

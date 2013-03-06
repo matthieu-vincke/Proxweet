@@ -1,5 +1,6 @@
 var AM = require('./modules/account-manager');
 var PM = require('./modules/pweet-manager');
+var PAP = require('./modules/proxy-alcopote');
 var EM = require('./modules/email-dispatcher');
 
 module.exports = function(app) {
