@@ -168,7 +168,7 @@ exports.getUserById = function(id,callback){
 }
 
 exports.getUsersById = function(ids,callback){
-  accounts.find({_id: {$in: ids}},callback);
+  accounts.find({_id: {$in: ids}}).toArray(callback);
 }
 
 exports.delAllRecords = function(callback){

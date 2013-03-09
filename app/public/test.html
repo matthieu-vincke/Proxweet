@@ -3,6 +3,7 @@
     <script>
     </script>
     <script src="vendor/jquery.min.js"></script>
+    <script src="vendor/moment.min.js"></script>
     <script>
       $(function(){
         function log(text){
@@ -36,6 +37,129 @@
         }
         function ajaxReset(cb){
           reqPost("reset",{},cb);
+        }
+        function ajaxPartyNew(token,lng,lat,when,desc,cb){
+          reqPost("/party/new",{token:token,when:when.format("YYYYMMDD-hhmmss"),lng:lng,lat:lat,desc:desc},cb);
+        }
+        function ajaxPartyJoin(token,partyId,cb){
+          reqPost("/party/join",{token:token,partyId:partyId},cb);
+        }
+        function ajaxPartyLeave(token,partyId,cb){
+          reqPost("/party/leave",{token:token,partyId:partyId},cb);
+        }
+        function ajaxPartyDelete(token,partyId,cb){
+          reqPost("/party/del",{token:token,partyId:partyId},cb);
+        }
+        function ajaxPartyMembers(token,partyId,cb){
+          reqPost("/party/members",{token:token,partyId:partyId},cb);
+        }
+        function ajaxPartyOwner(token,partyId,cb){
+          reqPost("/party/owner",{token:token,partyId:partyId},cb);
+        }
+        function ajaxPartyGet(token,lng,lat,cb){
+          reqPost("/party/get",{token:token,lng:lng,lat:lat},cb);
+        }
+        function ajaxPartyOwned(token,cb){
+          reqPost("/party/getOwned",{token:token},cb);
+        }
+        function ajaxPartyJoined(token,cb){
+          reqPost("/party/getJoined",{token:token},cb);
+        }
+  
+        function wrapSignupLoginDelete(cb,name){
+          if(!name) name = "client";
+          ajaxSignup(name+"Test",name+"Pass",name+"Mail",name+"Name",function(e,o){
+            if(e) return log("signup error : " + e.responseText);
+            log("signup ok");
+            ajaxLogin(name+"Test",name+"Pass",function(e,o){
+              if(e) return log("login error : " + e.responseText);
+              var token = o.token
+              log("login ok, token: " + token);
+              cb(token,function(){
+                ajaxDelete(token,function(e,o){
+                  if(e) return log("delete error : " + e.responseText);
+                  log("delete ok");          
+                });
+              });
+            });
+          });
+        }
+        
+        function wrapPartyNewDelete(cb){
+          function internal(token,finish){
+            log("cb, token: " + JSON.stringify(token));
+            ajaxPartyNew(token,0,0,moment().add('days',10),"Fiesta",function(e,o){
+              log("party new, id: " + o.id);
+              cb(token,o.id,function(){
+                ajaxPartyDelete(token,o.id,function(e,o){
+                  if(e) return log("party delete error : " + e.responseText);
+                  else log("party delete");
+                  finish();
+                });
+              });
+            });
+          }
+          wrapSignupLoginDelete(internal);
+        }
+        
+        function partyNewDelete(){
+          wrapPartyNewDelete(function(userId,partyId,finish){finish()});
+        }
+        
+        function partyJoinLeave(){
+          wrapPartyNewDelete(function(userId,partyId,finish){
+            wrapSignupLoginDelete(function(user2Id,finish2){
+              ajaxPartyJoin(user2Id,partyId,function(e,o){
+                log("party join " + JSON.stringify(o));
+                var nbRef = 0;
+                function need(){ nbRef++; }
+                function free(){ nbRef--; 
+                  if(!nbRef){
+                    ajaxPartyLeave(user2Id,partyId,function(e,o){
+                      log("party leave " + JSON.stringify(o));
+                      finish();
+                      finish2();
+                    });
+                  }
+                }
+                need();
+                ajaxPartyGet(user2Id,0,0,function(e,o){
+                  log("party get " + JSON.stringify(o));
+                  free();
+                });
+                need();
+                ajaxPartyOwner(user2Id,partyId,function(e,o){
+                  log("party owner " + JSON.stringify(o));
+                  free();
+                });
+                need();
+                ajaxPartyMembers(user2Id,partyId,function(e,o){
+                  log("party members " + JSON.stringify(o));
+                  free();
+                });
+                need();
+                ajaxPartyOwned(user2Id,function(e,o){
+                  log("party owned user 2 " + JSON.stringify(o));
+                  free();
+                });
+                need();
+                ajaxPartyJoined(user2Id,function(e,o){
+                  log("party joined user 2 " + JSON.stringify(o));
+                  free();
+                });
+                need();
+                ajaxPartyOwned(userId,function(e,o){
+                  log("party owned user " + JSON.stringify(o));
+                  free();
+                });
+                need();
+                ajaxPartyJoined(userId,function(e,o){
+                  log("party joined user " + JSON.stringify(o));
+                  free();
+                });
+              });
+            },"Joe")
+          });
         }
         
         function signupLoginDelete(){
@@ -77,7 +201,7 @@
           });
         }
         
-        signupLoginPostRetrieveDelete();
+        partyJoinLeave();
       });
     </script>
   </head>

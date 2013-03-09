@@ -2,6 +2,8 @@ var AM = require('./modules/account-manager');
 var PM = require('./modules/pweet-manager');
 var PAP = require('./modules/proxy-alcopote');
 var EM = require('./modules/email-dispatcher');
+var moment 		= require('moment');
+var async 		= require('async');
 
 module.exports = function(app) {
 // main login page //
@@ -112,22 +114,140 @@ module.exports = function(app) {
     });
   });
   
-// test //
+// proxy party //
 
-  app.get('/reset', function(req, res) {
-    PM.delAllRecords(function(){
-      AM.delAllRecords(function(){
-        res.send('ok');
-      });
+  function partyIntern2Extern(p){
+    return {when:moment(p.when).format("YYYYMMDD-hhmmss"),pos:p.pos,desc:p.desc,id:p._id};
+  }
+  
+  
+  app.post('/party/new', function(req, res) {
+    if(!req.user) return res.send(401, 'invalid token');
+    var pos = {lng:parseFloat(req.param('lng')),lat:parseFloat(req.param('lat'))};
+    var when = moment(req.param('when'),"YYYYMMDD-hhmmss");
+    var desc = req.param('desc');
+    PAP.newParty(req.user._id,pos,when,desc,function(err,party){
+      if(party) return res.send(partyIntern2Extern(party));
+      else return res.send(500, 'error');
     });
   });
 
-  app.post('/reset', function(req, res) {
-    PM.delAllRecords(function(){
-      AM.delAllRecords(function(){
-        res.send('ok');
+  app.post('/party/join', function(req, res) {
+    if(!req.user) return res.send(401, 'invalid token');
+    var partyId = req.param('partyId');
+    if(!partyId) return res.send(400, 'invalid party id number');
+    PAP.joinParty(req.user._id,partyId,function(err){
+      if(!err) return res.send("ok");
+      else return res.send(500, 'error');
+    });
+  });
+  
+  app.post('/party/leave', function(req, res) {
+    if(!req.user) return res.send(401, 'invalid token');
+    var partyId = req.param('partyId');
+    if(!partyId) return res.send(400, 'invalid party id number');
+    PAP.leaveParty(req.user._id,partyId,function(err){
+      if(!err) return res.send("ok");
+      else return res.send(500, 'error');
+    });
+  });
+  
+  app.post('/party/del', function(req, res) {
+    if(!req.user) return res.send(401, 'invalid token');
+    var partyId = req.param('partyId');
+    if(!partyId) return res.send(400, 'invalid party id number');
+    PAP.getPartyOwner(partyId,function(e,o){
+      if(e) return res.send(500, 'error');
+      if(!o) return res.send(400, 'invalid party id number');
+      if(o._id.equals(req.user._id)){
+        PAP.delParty(partyId,function(err){
+          if(!err) return res.send("ok");
+          else return res.send(500, 'error');
+        });
+      }else return res.send(400, 'user is not the owner of the party');
+    });
+  });
+  
+  app.post('/party/members', function(req, res) {
+    if(!req.user) return res.send(401, 'invalid token');
+    var partyId = req.param('partyId');
+    if(!partyId) return res.send(400, 'invalid party id number');
+    PAP.getPartyOwner(partyId,function(e,o){
+      if(e) return res.send(500, 'error');
+      if(!o) return res.send(400, 'invalid party id number');
+      var partyOwnerId = o._id;
+      PAP.getPartyMembers(partyId,function(e,members){
+        if(!e){
+          var ret = members.map(function(m){ return m.user; });
+          return res.send(ret);
+        }
+        return res.send(500, 'error');
       });
     });
+  });
+  
+  app.post('/party/owner', function(req, res) {
+    if(!req.user) return res.send(401, 'invalid token');
+    var partyId = req.param('partyId');
+    if(!partyId) return res.send(400, 'invalid party id number');
+    PAP.getPartyOwner(partyId,function(e,o){
+      if(e) return res.send(500, 'error');
+      if(!o) return res.send(400, 'invalid party id number');
+      if(!e) return res.send(o.user);
+      return res.send(500, 'error');      
+    });
+  });
+  
+  
+  app.post('/party/get', function(req, res) {
+    if(!req.user) return res.send(401, 'invalid token');
+    var pos = {lng:parseFloat(req.param('lng')),lat:parseFloat(req.param('lat'))};
+    PAP.nearlyParties(pos,function(e,parties){
+      if(e) return res.send(500, 'error');
+      if(!parties) return res.send(400, 'invalid party id number');
+      if(!e){
+        var ret = parties.map(partyIntern2Extern);
+        return res.send(ret);
+      }
+      return res.send(500, 'error');      
+    });
+  });
+  
+  app.post('/party/getOwned', function(req, res) {
+    if(!req.user) return res.send(401, 'invalid token');
+    PAP.getPartyOwned(req.user._id,function(e,parties){
+      if(e) return res.send(500, 'error');
+      var ret = parties.map(partyIntern2Extern);
+      return res.send(ret);     
+    });
+  }); 
+  
+  app.post('/party/getJoined', function(req, res) {
+    if(!req.user) return res.send(401, 'invalid token');
+    PAP.getPartyJoined(req.user._id,function(e,parties){
+      if(e) return res.send(500, 'error');
+      if(!parties) return res.send([]);
+      var ret = parties.map(partyIntern2Extern);
+      return res.send(ret);     
+    });
+  });
+    
+// test //
+
+  app.get('/reset', function(req, res) {
+    async.parallel([
+      PM.delAllRecords,
+      AM.delAllRecords,
+      PAP.delAllRecords
+    ],function(){res.send('ok');});
+  });
+
+  app.post('/reset', function(req, res) {
+    async.parallel([
+      PM.delAllRecords,
+      AM.delAllRecords,
+      PAP.delAllRecords
+    ],function(){res.send('ok');});
   });
 
   app.get('*', function(req, res) { res.render('404', { title: 'Page Not Found'}); });

@@ -14,16 +14,16 @@ var distance = 1;
 /* establish the database connection */
 
 var db = new MongoDB(dbName, new Server(dbHost, dbPort, {auto_reconnect: true}), {w: 1});
+var proxweet = db.collection('proxweet');
 db.open(function(e, d){
   if(e){
     console.log(e);
     return;
   }
 	console.log('connected to database :: ' + dbName);
+  proxweet.ensureIndex( { pos: "2d" } , function(){console.log("proxweet ensure index 2d, ok");});
   //test();
 });
-var proxweet = db.collection('proxweet');
-proxweet.ensureIndex( { pos: "2d" } , function(){});
 
 exports.getXML = function(pos, distance, callback){
   exports.get(pos, distance, function(err,users){
